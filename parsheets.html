@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Par Sheets - Chicken + Pig</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f4f4f4;
+    padding: 20px;
+  }
+  .topbar {
+    max-width: 500px;
+    margin: 0 auto 16px auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  a.back {
+    font-size: 14px;
+    color: #444;
+    text-decoration: none;
+  }
+  h1 {
+    text-align: center;
+    color: #2b2b2b;
+    font-size: 24px;
+    margin: 0 0 20px 0;
+  }
+  .section-title {
+    max-width: 500px;
+    margin: 24px auto 8px auto;
+    font-size: 15px;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .item-card {
+    background: #fff;
+    max-width: 500px;
+    margin: 0 auto 10px auto;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  }
+  .item-name {
+    font-weight: 600;
+    font-size: 16px;
+    color: #2b2b2b;
+    margin-bottom: 10px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #555;
+  }
+  .row input {
+    width: 90px;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    text-align: right;
+  }
+  .need-value {
+    font-weight: 700;
+    color: #c0392b;
+  }
+  #submit-btn {
+    display: block;
+    width: 100%;
+    max-width: 500px;
+    margin: 24px auto;
+    padding: 16px;
+    font-size: 17px;
+    font-weight: 600;
+    background: #2b2b2b;
+    color: white;
+    border: none;
+    border-radius: 10px;
+  }
+  #loading, #done-msg {
+    text-align: center;
+    padding: 60px 20px;
+    color: #444;
+    font-size: 16px;
+  }
+  #done-msg { display: none; }
+  #main-content { display: none; }
+</style>
+</head>
+<body>
+
+<div id="loading">Loading...</div>
+
+<div id="done-msg">
+  <p>✅ Par sheet submitted successfully.</p>
+  <p><a class="back" href="index.html">Back to Dashboard</a></p>
+</div>
+
+<div id="main-content">
+  <div class="topbar">
+    <a class="back" href="index.html">&larr; Dashboard</a>
+  </div>
+  <h1>Par Sheets</h1>
+  <div id="items-container"></div>
+  <button id="submit-btn">Submit Par Sheet</button>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, getDoc, collection, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDjbBgBS59BVcgw5abOl7MT0ZT0PGO2VuQ",
+    authDomain: "chicken-and-pig.firebaseapp.com",
+    projectId: "chicken-and-pig",
+    storageBucket: "chicken-and-pig.firebasestorage.app",
+    messagingSenderId: "114769973885",
+    appId: "1:114769973885:web:cd3c5f42cd1afd879b1714"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  let currentUser = null;
+  let currentUserData = null;
+  let parItems = [];
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = "login.html";
+      return;
+    }
+    currentUser = user;
+
+    const userDocSnap = await getDoc(doc(db, "users", user.uid));
+    if (!userDocSnap.exists()) {
+      document.getElementById('loading').textContent = "No profile found. Ask an admin to set you up.";
+      return;
+    }
+    currentUserData = userDocSnap.data();
+
+    const itemsSnap = await getDocs(collection(db, "parItems"));
+    parItems = [];
+    itemsSnap.forEach((docSnap) => {
+      parItems.push({ id: docSnap.id, ...docSnap.data() });
+    });
+
+    renderItems();
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+  });
+
+  function renderItems() {
+    const container = document.getElementById('items-container');
+    container.innerHTML = '';
+
+    const sections = {};
+    parItems.forEach(item => {
+      if (!sections[item.section]) sections[item.section] = [];
+      sections[item.section].push(item);
+    });
+
+    Object.keys(sections).forEach(sectionName => {
+      const sectionTitle = document.createElement('div');
+      sectionTitle.className = 'section-title';
+      sectionTitle.textContent = sectionName;
+      container.appendChild(sectionTitle);
+
+      sections[sectionName].forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
+          <div class="item-name">${item.item}</div>
+          <div class="row"><span>Par</span><span>${item.par} ${item.unit}</span></div>
+          <div class="row">
+            <span>On Hand</span>
+            <input type="number" min="0" step="0.1" data-item-id="${item.id}" class="onhand-input" placeholder="0">
+          </div>
+          <div class="row"><span>Need</span><span class="need-value" id="need-${item.id}">${item.par} ${item.unit}</span></div>
+        `;
+        container.appendChild(card);
+      });
+    });
+
+    document.querySelectorAll('.onhand-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const itemId = e.target.getAttribute('data-item-id');
+        const item = parItems.find(i => i.id === itemId);
+        const onHand = parseFloat(e.target.value) || 0;
+        let need = item.par - onHand;
+        if (need < 0) need = 0;
+        document.getElementById(`need-${itemId}`).textContent = `${need} ${item.unit}`;
+      });
+    });
+  }
+
+  document.getElementById('submit-btn').addEventListener('click', async () => {
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting...";
+
+    const entries = parItems.map(item => {
+      const inputEl = document.querySelector(`.onhand-input[data-item-id="${item.id}"]`);
+      const onHand = parseFloat(inputEl.value) || 0;
+      let need = item.par - onHand;
+      if (need < 0) need = 0;
+      return {
+        itemId: item.id,
+        item: item.item,
+        section: item.section,
+        unit: item.unit,
+        par: item.par,
+        onHand: onHand,
+        need: need
+      };
+    });
+
+    try {
+      await addDoc(collection(db, "parSheetRecords"), {
+        employeeName: currentUserData.name,
+        employeeInitials: currentUserData.initials,
+        employeeUid: currentUser.uid,
+        entries: entries,
+        completedAt: serverTimestamp()
+      });
+
+      document.getElementById('main-content').style.display = 'none';
+      document.getElementById('done-msg').style.display = 'block';
+    } catch (err) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit Par Sheet";
+      alert("Something went wrong saving your par sheet. Please try again.");
+    }
+  });
+</script>
+
+</body>
+</html>
