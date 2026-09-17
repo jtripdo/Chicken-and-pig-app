@@ -12,6 +12,25 @@
     background: #f4f4f4;
     padding: 20px;
   }
+  .topbar {
+    max-width: 500px;
+    margin: 0 auto 16px auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .who {
+    font-size: 14px;
+    color: #444;
+  }
+  .who strong { color: #2b2b2b; }
+  .signout {
+    font-size: 13px;
+    color: #c0392b;
+    background: none;
+    border: none;
+    text-decoration: underline;
+  }
   h1 {
     text-align: center;
     color: #2b2b2b;
@@ -45,31 +64,92 @@
     align-items: center;
     justify-content: center;
   }
+  #loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+    font-size: 16px;
+  }
+  #app-content { display: none; }
 </style>
 </head>
 <body>
 
-<h1>Chicken + Pig</h1>
-<div class="date" id="today-date"></div>
+<div id="loading">Loading...</div>
 
-<div class="grid">
-  <div class="card">TODAY</div>
-  <div class="card">PAR SHEETS</div>
-  <div class="card">PREP</div>
-  <div class="card">INVENTORY</div>
-  <div class="card">RECIPES</div>
-  <div class="card">OPENING</div>
-  <div class="card">CLOSING</div>
-  <div class="card">TEMP LOGS</div>
-  <div class="card">WASTE</div>
-  <div class="card">MANAGER LOG</div>
-  <div class="card">TEAM</div>
-  <div class="card">ADMIN</div>
+<div id="app-content">
+  <div class="topbar">
+    <div class="who">Signed in as <strong id="who-name">...</strong> (<span id="who-role">...</span>)</div>
+    <button class="signout" id="signout-btn">Sign Out</button>
+  </div>
+
+  <h1>Chicken + Pig</h1>
+  <div class="date" id="today-date"></div>
+
+  <div class="grid">
+    <div class="card">TODAY</div>
+    <div class="card">PAR SHEETS</div>
+    <div class="card">PREP</div>
+    <div class="card">INVENTORY</div>
+    <div class="card">RECIPES</div>
+    <div class="card">OPENING</div>
+    <div class="card">CLOSING</div>
+    <div class="card">TEMP LOGS</div>
+    <div class="card">WASTE</div>
+    <div class="card">MANAGER LOG</div>
+    <div class="card">TEAM</div>
+    <div class="card">ADMIN</div>
+  </div>
 </div>
 
-<script>
-  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  document.getElementById('today-date').textContent = new Date().toLocaleDateString(undefined, options);
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDjbBgBS59BVcgw5abOl7MT0ZT0PGO2VuQ",
+    authDomain: "chicken-and-pig.firebaseapp.com",
+    projectId: "chicken-and-pig",
+    storageBucket: "chicken-and-pig.firebasestorage.app",
+    messagingSenderId: "114769973885",
+    appId: "1:114769973885:web:cd3c5f42cd1afd879b1714"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = "login.html";
+      return;
+    }
+
+    const userDocRef = doc(db, "users", user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+
+    if (!userDocSnap.exists()) {
+      document.getElementById('loading').textContent = "Your account exists but has no profile. Ask an admin to set you up.";
+      return;
+    }
+
+    const userData = userDocSnap.data();
+    document.getElementById('who-name').textContent = userData.name || user.email;
+    document.getElementById('who-role').textContent = userData.role || "unknown";
+
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('today-date').textContent = new Date().toLocaleDateString(undefined, options);
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app-content').style.display = 'block';
+  });
+
+  document.getElementById('signout-btn').addEventListener('click', () => {
+    signOut(auth).then(() => {
+      window.location.href = "login.html";
+    });
+  });
 </script>
 
 </body>
